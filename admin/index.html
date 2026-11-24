@@ -2231,16 +2231,16 @@ if(navigator.requestMIDIAccess) navigator.requestMIDIAccess({sysex:false}).then(
 const seen=new Set();
 const hook=()=>{ NK.out=[...m.outputs.values()].filter(o=>/nano/i.test(o.name||''));
 m.inputs.forEach(i=>{ const nm=i.name||'', nano=/nano/i.test(nm);
-i.onmidimessage=ev=>{ const d=ev.data; if(nano){ if((d[0]&0xF0)===0xB0) nkCC(d[1],d[2]); } else lpMsg(d); };
+i.onmidimessage=ev=>{ const d=ev.data; if(typeof syncSend==='function') syncSend({t:'midi',d:Array.from(d),nano}); if(nano){ if((d[0]&0xF0)===0xB0) nkCC(d[1],d[2]); } else lpMsg(d); };
 if(i.state==='connected'&&!seen.has(i.id)){ seen.add(i.id); flash(nano?'nanoKONTROL2 verbunden':/lightpad|block|roli/i.test(nm)?'lightpad verbunden':nm+' verbunden'); if(nano) nkLeds(); } }); };
 hook(); m.onstatechange=hook; }).catch(()=>{});
 syncUI();
 /* ---------- rollen: der admin entscheidet, die galerie folgt; ohne admin läuft sie generativ ---------- */
-const ROLE={gal:!(/\/admin\/?$/.test(location.pathname)||new URLSearchParams(location.search).get('modus')==='admin')};
+const ROLE={replay:false,gal:!(/\/admin\/?$/.test(location.pathname)||new URLSearchParams(location.search).get('modus')==='admin')};
 if(ROLE.gal){ const st=document.createElement('style'); st.textContent='#panel,#keys,#hint{display:none!important} html,body,canvas{cursor:none!important}'; document.head.appendChild(st); }
 if(ROLE.gal){
 ['keydown','keyup','pointerdown','pointermove','pointerup','pointercancel','wheel','contextmenu','dblclick','lostpointercapture'].forEach(ty=>
-addEventListener(ty,e=>{ e.stopImmediatePropagation(); e.stopPropagation(); if(ty==='wheel'||ty==='contextmenu') e.preventDefault(); },true));
+addEventListener(ty,e=>{ if(ROLE.replay) return; e.stopImmediatePropagation(); e.stopPropagation(); if(ty==='wheel'||ty==='contextmenu') e.preventDefault(); },true));
 }
 const SYNC={ch:null,seen:-1e9,away:true,abw:(()=>{ try{ return localStorage.getItem('sv.abw')==='generativ'?'generativ':'stille'; }catch(e){ return 'stille'; } })(),last:'',sent:0,keys:['farb','kon','rstV','flkV','lebV','lfoV','fbAmt','blur','edge','naF','hof','qc','kz','crush','fbm','dly','rev','grn','kart','kw']};
 const RELAIS=new URLSearchParams(location.search).get('relais')||'wss://synkhronicu.synkhronicu.workers.dev/ws';   // nach dem hochladen des workers hier die adresse eintragen: 'wss://sv-relais.<name>.workers.dev/ws'
@@ -2254,6 +2254,7 @@ setInterval(()=>{ if(ROLE.gal) return; const m=syncSnap(), j=JSON.stringify([m.p
 function syncRecv(m){ if(!ROLE.gal||!m) return;
 if(m.t==='zustand'){ SYNC.seen=now(); SYNC.abw=m.abw||SYNC.abw; if(SYNC.away){ SYNC.away=false; HALT.hold=false; GEN.on=false; genOff(); } for(const k in m.p) if(P[k]) setParam(k,m.p[k]); for(const k in m.s) S[k]=m.s[k]; GEN.on=!!m.gen; }
 else if(m.t==='szene'){ if(m.c) SCN[m.d]=m.c; sceneLoad(m.d,true); }
+else if(m.t==='ev'||m.t==='midi'){ if(!SYNC.away&&window.svReplay) svReplay(m); }
 else if(m.t==='admin'&&!m.da) SYNC.seen=-1e9;
 }
 if(SYNC.ch) SYNC.ch.onmessage=ev=>syncRecv(ev.data);
@@ -2277,6 +2278,29 @@ ws.onerror=()=>{ try{ ws.close(); }catch(e){} };
 if(RELAIS){ if(!ROLE.gal){ const d=document.createElement('div'); d.id='netdot'; d.style.cssText='position:fixed;top:8px;right:8px;min-width:8px;height:8px;border-radius:5px;z-index:98;font:9px/8px ui-monospace,monospace;color:#0b0d12;text-align:center;padding:0 2px;opacity:.75'; document.body.appendChild(d); netDot(); } netConnect(); }
 setInterval(()=>{ if(!ROLE.gal) return; const away=now()-SYNC.seen>6; if(away!==SYNC.away){ SYNC.away=away; if(away){ if(SYNC.abw==='generativ'){ HALT.hold=false; GEN.on=true; } else { GEN.on=false; HALT.hold=true; } } else { HALT.hold=false; GEN.on=false; genOff(); } } },500);
 { const _sl=sceneLoad; sceneLoad=function(d,fern){ _sl(d); if(!fern) syncSend({t:'szene',d,c:SCN[d]}); }; }
+/* ---------- spiegel: das spiel des admins (tasten, zeiger, rad, midi) läuft in der galerie mit ---------- */
+if(!ROLE.gal){
+let lastMove=0; const mods=e=>({sh:e.shiftKey,al:e.altKey,ct:e.ctrlKey,me:e.metaKey});
+const send=m=>{ if(NET.auth&&NET.bereit) syncSend(m); };
+['keydown','keyup'].forEach(ty=>addEventListener(ty,e=>{ if(e.target&&e.target.tagName==='INPUT') return; if(e.code==='F7') return;
+send({t:'ev',ty,key:e.key,code:e.code,rep:e.repeat,...mods(e)}); },true));
+['pointerdown','pointermove','pointerup','pointercancel','dblclick','contextmenu'].forEach(ty=>addEventListener(ty,e=>{
+if(e.target!==cv) return; if(ty==='pointermove'){ const t=performance.now(); if(t-lastMove<33) return; lastMove=t; }
+send({t:'ev',ty,x:e.clientX/innerWidth,y:e.clientY/innerHeight,b:e.button,bs:e.buttons,id:e.pointerId|0,pt:e.pointerType||'mouse',...mods(e)}); },true));
+addEventListener('wheel',e=>{ if(e.target!==cv) return; send({t:'ev',ty:'wheel',x:e.clientX/innerWidth,y:e.clientY/innerHeight,dx:e.deltaX,dy:e.deltaY,...mods(e)}); },{capture:true,passive:true});
+}
+if(ROLE.gal){
+for(const k of ['setPointerCapture','releasePointerCapture']){ const f=Element.prototype[k]; Element.prototype[k]=function(id){ try{ return f.call(this,id); }catch(e){} }; }
+window.svReplay=m=>{ ROLE.replay=true; try{
+if(m.t==='midi'){ const d=new Uint8Array(m.d); if(m.nano){ if((d[0]&0xF0)===0xB0) nkCC(d[1],d[2]); } else lpMsg(d); return; }
+const o={bubbles:true,cancelable:true,shiftKey:!!m.sh,altKey:!!m.al,ctrlKey:!!m.ct,metaKey:!!m.me};
+if(m.ty==='keydown'||m.ty==='keyup'){ document.body.dispatchEvent(new KeyboardEvent(m.ty,{...o,key:m.key,code:m.code,repeat:!!m.rep})); return; }
+const cx=m.x*innerWidth, cy=m.y*innerHeight, p={...o,clientX:cx,clientY:cy,view:window};
+if(m.ty==='wheel'){ cv.dispatchEvent(new WheelEvent('wheel',{...p,deltaX:m.dx,deltaY:m.dy,deltaMode:0})); return; }
+if(m.ty==='dblclick'||m.ty==='contextmenu'){ cv.dispatchEvent(new MouseEvent(m.ty,{...p,button:m.b,buttons:m.bs})); return; }
+cv.dispatchEvent(new PointerEvent(m.ty,{...p,button:m.b,buttons:m.bs,pointerId:m.id+1000,pointerType:m.pt,isPrimary:true}));
+}catch(e){} finally{ ROLE.replay=false; } };
+}
 </script>
 </body>
 </html>

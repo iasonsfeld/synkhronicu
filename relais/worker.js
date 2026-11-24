@@ -69,7 +69,7 @@ export class Raum {
     }
     if (!att.admin) return;                    // alles andere nur vom admin
     if (m.t === 'zustand') { await this.ctx.storage.put('zustand', msg); this.an(msg); }
-    else if (m.t === 'szene') this.an(msg);
+    else if (m.t === 'szene' || m.t === 'ev' || m.t === 'midi') this.an(msg);   // spiel des admins: nur weiterreichen, nicht speichern
   }
 
   async webSocketClose(ws) { this.weg(ws); }

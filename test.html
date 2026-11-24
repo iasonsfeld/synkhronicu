@@ -1,8 +1,0 @@
-<!doctype html><meta charset="utf-8"><title>relais test</title><pre id="o">…</pre>
-<script>
-const o=document.getElementById('o'), log=t=>o.textContent+='\n'+t;
-const ws=new WebSocket('wss://synkhronicu.synkhronicu.workers.dev/ws');
-ws.onopen=()=>{ log('offen'); ws.send(JSON.stringify({t:'auth',pw:'__probe__'})); };
-ws.onmessage=e=>log('antwort: '+e.data.slice(0,200));
-ws.onerror=()=>log('fehler'); ws.onclose=e=>log('zu '+e.code);
-</script>
