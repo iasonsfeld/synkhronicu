@@ -51,8 +51,8 @@ export class Raum {
     if (m.t === 'auth') {
       const sperre = (await this.ctx.storage.get('sperre')) || { n: 0, bis: 0 };
       if (Date.now() < sperre.bis) { ws.send(JSON.stringify({ t: 'auth', ok: false, warte: Math.ceil((sperre.bis - Date.now()) / 1000) })); return; }
-      if (!this.env.PASSWORT) { ws.send(JSON.stringify({ t: 'auth', ok: false, fehlt: true })); return; }   // kein secret am relais
-      if (gleich(String(m.pw || '').trim(), String(this.env.PASSWORT).trim())) {
+      if (!(this.env.PASSWORT || this.env.PASSWORD)) { ws.send(JSON.stringify({ t: 'auth', ok: false, fehlt: true })); return; }   // kein secret am relais
+      if (gleich(String(m.pw || '').trim(), String((this.env.PASSWORT || this.env.PASSWORD)).trim())) {
         await this.ctx.storage.put('sperre', { n: 0, bis: 0 });
         ws.serializeAttachment({ admin: true });
         ws.send(JSON.stringify({ t: 'auth', ok: true }));
