@@ -19,6 +19,6 @@ einrichten über das cloudflare-dashboard:
 2. stammverzeichnis: `relais`
 3. bereitstellen
 4. einstellungen → variablen und geheimnisse → geheimnis `PASSWORT` anlegen
-5. die adresse `https://sv-relais.<name>.workers.dev` notieren
+5. die adresse `https://synkhronicu.<name>.workers.dev` notieren
 
 lokal testen: `cd relais && npm i && echo 'PASSWORT="probe"' > .dev.vars && npx wrangler dev`

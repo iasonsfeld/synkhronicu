@@ -1,4 +1,4 @@
-name = "sv-relais"
+name = "synkhronicu"
 main = "worker.js"
 compatibility_date = "2025-09-01"
 
