@@ -1,5 +1,5 @@
 name = "synkhronicu"
-main = "worker.js"
+main = "relais/worker.js"
 compatibility_date = "2025-09-01"
 
 [[durable_objects.bindings]]
