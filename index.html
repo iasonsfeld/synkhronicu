@@ -2243,7 +2243,7 @@ if(ROLE.gal){
 addEventListener(ty,e=>{ e.stopImmediatePropagation(); e.stopPropagation(); if(ty==='wheel'||ty==='contextmenu') e.preventDefault(); },true));
 }
 const SYNC={ch:null,seen:-1e9,away:true,abw:(()=>{ try{ return localStorage.getItem('sv.abw')==='generativ'?'generativ':'stille'; }catch(e){ return 'stille'; } })(),last:'',sent:0,keys:['farb','kon','rstV','flkV','lebV','lfoV','fbAmt','blur','edge','naF','hof','qc','kz','crush','fbm','dly','rev','grn','kart','kw']};
-const RELAIS=new URLSearchParams(location.search).get('relais')||'';
+const RELAIS=new URLSearchParams(location.search).get('relais')||'wss://synkhronicu.synkhronicu.workers.dev/ws';   // nach dem hochladen des workers hier die adresse eintragen: 'wss://sv-relais.<name>.workers.dev/ws'
 const NET={ws:null,ok:false,auth:false,bereit:false,gal:0,wait:1000,pw:(()=>{ try{ return localStorage.getItem('sv.pw')||''; }catch(e){ return ''; } })()};
 if(!RELAIS) try{ SYNC.ch=new BroadcastChannel('sv-galerie'); }catch(e){}
 const syncSend=m=>{ if(ROLE.gal) return; const j=JSON.stringify(m);
