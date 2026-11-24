@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>relais test</title><pre id="o">…</pre>
+<script>
+const o=document.getElementById('o'), n={}; let last='';
+const ws=new WebSocket('wss://synkhronicu.synkhronicu.workers.dev/ws');
+ws.onopen=()=>{ last='offen'; };
+ws.onmessage=e=>{ try{ const m=JSON.parse(e.data); n[m.t]=(n[m.t]||0)+1; if(m.t==='admin') last='admin da: '+m.da; }catch(_){} };
+ws.onclose=e=>last='zu '+e.code;
+setInterval(()=>o.textContent=last+'\n'+JSON.stringify(n),500);
+</script>
