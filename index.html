@@ -2267,7 +2267,7 @@ document.body.appendChild(f); setTimeout(()=>f.querySelector('input').focus(),50
 function netConnect(){ if(!RELAIS) return; let ws; try{ ws=new WebSocket(RELAIS); }catch(e){ return; } NET.ws=ws;
 ws.onopen=()=>{ NET.ok=true; NET.wait=1000; netDot(); if(!ROLE.gal){ if(NET.pw) ws.send(JSON.stringify({t:'auth',pw:NET.pw})); else netLogin(); } };
 ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
-if(m.t==='auth'&&!ROLE.gal){ NET.auth=!!m.ok; if(m.ok){ SYNC.last=''; flash('relais: verbunden'); } else { NET.pw=''; try{ localStorage.removeItem('sv.pw'); }catch(_){} netLogin(m.warte?'zu viele versuche · '+m.warte+' s':'passwort falsch'); } netDot(); return; }
+if(m.t==='auth'&&!ROLE.gal){ NET.auth=!!m.ok; if(m.ok){ SYNC.last=''; flash('relais: verbunden'); } else { NET.pw=''; try{ localStorage.removeItem('sv.pw'); }catch(_){} netLogin(m.fehlt?'am relais ist kein PASSWORT hinterlegt':m.warte?'zu viele versuche · '+m.warte+' s':'passwort falsch'); } netDot(); return; }
 if(m.t==='info'){ NET.gal=m.galerien|0; netDot(); return; }
 if(m.t==='stand'&&!ROLE.gal){ const z=m.z; if(z){ for(const k in z.p) if(P[k]) setParam(k,z.p[k]); for(const k in z.s) S[k]=z.s[k]; GEN.on=!!z.gen; if(z.abw){ SYNC.abw=z.abw; try{ localStorage.setItem('sv.abw',z.abw); }catch(_){} } } NET.bereit=true; SYNC.last=''; return; }
 syncRecv(m); };
