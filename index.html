@@ -2243,16 +2243,40 @@ if(ROLE.gal){
 addEventListener(ty,e=>{ e.stopImmediatePropagation(); e.stopPropagation(); if(ty==='wheel'||ty==='contextmenu') e.preventDefault(); },true));
 }
 const SYNC={ch:null,seen:-1e9,away:true,abw:(()=>{ try{ return localStorage.getItem('sv.abw')==='generativ'?'generativ':'stille'; }catch(e){ return 'stille'; } })(),last:'',sent:0,keys:['farb','kon','rstV','flkV','lebV','lfoV','fbAmt','blur','edge','naF','hof','qc','kz','crush','fbm','dly','rev','grn','kart','kw']};
-try{ SYNC.ch=new BroadcastChannel('sv-galerie'); }catch(e){}
-const syncSend=m=>{ if(SYNC.ch&&!ROLE.gal) try{ SYNC.ch.postMessage(m); }catch(e){} };
+const RELAIS=new URLSearchParams(location.search).get('relais')||'';
+const NET={ws:null,ok:false,auth:false,bereit:false,gal:0,wait:1000,pw:(()=>{ try{ return localStorage.getItem('sv.pw')||''; }catch(e){ return ''; } })()};
+if(!RELAIS) try{ SYNC.ch=new BroadcastChannel('sv-galerie'); }catch(e){}
+const syncSend=m=>{ if(ROLE.gal) return; const j=JSON.stringify(m);
+if(NET.ws&&NET.auth&&NET.bereit&&NET.ws.readyState===1) try{ NET.ws.send(j); }catch(e){}
+if(SYNC.ch) try{ SYNC.ch.postMessage(m); }catch(e){} };
 function syncSnap(){ const p={},s={}; for(const k in P) p[k]=P[k].b; SYNC.keys.forEach(k=>{ if(typeof S[k]!=='undefined') s[k]=S[k]; }); return {t:'zustand',p,s,gen:GEN.on,abw:SYNC.abw,ts:now()}; }
-setInterval(()=>{ if(ROLE.gal||!SYNC.ch) return; const m=syncSnap(), j=JSON.stringify([m.p,m.s,m.gen,m.abw]); if(j!==SYNC.last||now()-SYNC.sent>2){ SYNC.last=j; SYNC.sent=now(); syncSend(m); } },300);
-if(SYNC.ch) SYNC.ch.onmessage=ev=>{ const m=ev.data; if(!ROLE.gal||!m) return;
+setInterval(()=>{ if(ROLE.gal) return; const m=syncSnap(), j=JSON.stringify([m.p,m.s,m.gen,m.abw]); if(j!==SYNC.last||now()-SYNC.sent>2){ SYNC.last=j; SYNC.sent=now(); syncSend(m); } },300);
+function syncRecv(m){ if(!ROLE.gal||!m) return;
 if(m.t==='zustand'){ SYNC.seen=now(); SYNC.abw=m.abw||SYNC.abw; if(SYNC.away){ SYNC.away=false; HALT.hold=false; GEN.on=false; genOff(); } for(const k in m.p) if(P[k]) setParam(k,m.p[k]); for(const k in m.s) S[k]=m.s[k]; GEN.on=!!m.gen; }
-if(m.t==='szene') sceneLoad(m.d);
-};
+else if(m.t==='szene'){ if(m.c) SCN[m.d]=m.c; sceneLoad(m.d,true); }
+else if(m.t==='admin'&&!m.da) SYNC.seen=-1e9;
+}
+if(SYNC.ch) SYNC.ch.onmessage=ev=>syncRecv(ev.data);
+function netDot(){ const d=document.getElementById('netdot'); if(!d) return; d.style.background=!NET.ok?'#555':NET.auth?'#cfe0ff':'#a04040'; d.title=!NET.ok?'relais: getrennt':NET.auth?'relais: admin · galerien '+NET.gal:'relais: nicht angemeldet'; d.textContent=NET.auth&&NET.gal?NET.gal:''; }
+function netLogin(msg){ if(ROLE.gal||document.getElementById('netlog')) return;
+const f=document.createElement('form'); f.id='netlog';
+f.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99;background:rgba(10,12,16,.82);font:13px ui-monospace,monospace;color:#cfe0ff';
+f.innerHTML='<label style="display:flex;flex-direction:column;gap:8px">'+(msg||'passwort')+'<input type="password" autocomplete="current-password" style="background:#0c0f14;border:1px solid #3a4a66;color:#cfe0ff;padding:6px 8px;font:inherit;width:220px"></label>';
+f.onsubmit=e=>{ e.preventDefault(); NET.pw=f.querySelector('input').value; try{ localStorage.setItem('sv.pw',NET.pw); }catch(_){} f.remove(); if(NET.ws&&NET.ws.readyState===1) NET.ws.send(JSON.stringify({t:'auth',pw:NET.pw})); };
+document.body.appendChild(f); setTimeout(()=>f.querySelector('input').focus(),50); }
+function netConnect(){ if(!RELAIS) return; let ws; try{ ws=new WebSocket(RELAIS); }catch(e){ return; } NET.ws=ws;
+ws.onopen=()=>{ NET.ok=true; NET.wait=1000; netDot(); if(!ROLE.gal){ if(NET.pw) ws.send(JSON.stringify({t:'auth',pw:NET.pw})); else netLogin(); } };
+ws.onmessage=ev=>{ let m; try{ m=JSON.parse(ev.data); }catch(e){ return; }
+if(m.t==='auth'&&!ROLE.gal){ NET.auth=!!m.ok; if(m.ok){ SYNC.last=''; flash('relais: verbunden'); } else { NET.pw=''; try{ localStorage.removeItem('sv.pw'); }catch(_){} netLogin(m.warte?'zu viele versuche · '+m.warte+' s':'passwort falsch'); } netDot(); return; }
+if(m.t==='info'){ NET.gal=m.galerien|0; netDot(); return; }
+if(m.t==='stand'&&!ROLE.gal){ const z=m.z; if(z){ for(const k in z.p) if(P[k]) setParam(k,z.p[k]); for(const k in z.s) S[k]=z.s[k]; GEN.on=!!z.gen; if(z.abw){ SYNC.abw=z.abw; try{ localStorage.setItem('sv.abw',z.abw); }catch(_){} } } NET.bereit=true; SYNC.last=''; return; }
+syncRecv(m); };
+ws.onclose=()=>{ NET.ok=false; NET.auth=false; NET.bereit=false; netDot(); setTimeout(netConnect,NET.wait); NET.wait=Math.min(15000,NET.wait*1.7); };
+ws.onerror=()=>{ try{ ws.close(); }catch(e){} };
+}
+if(RELAIS){ if(!ROLE.gal){ const d=document.createElement('div'); d.id='netdot'; d.style.cssText='position:fixed;top:8px;right:8px;min-width:8px;height:8px;border-radius:5px;z-index:98;font:9px/8px ui-monospace,monospace;color:#0b0d12;text-align:center;padding:0 2px;opacity:.75'; document.body.appendChild(d); netDot(); } netConnect(); }
 setInterval(()=>{ if(!ROLE.gal) return; const away=now()-SYNC.seen>6; if(away!==SYNC.away){ SYNC.away=away; if(away){ if(SYNC.abw==='generativ'){ HALT.hold=false; GEN.on=true; } else { GEN.on=false; HALT.hold=true; } } else { HALT.hold=false; GEN.on=false; genOff(); } } },500);
-{ const _sl=sceneLoad; sceneLoad=function(d){ _sl(d); syncSend({t:'szene',d}); }; }
+{ const _sl=sceneLoad; sceneLoad=function(d,fern){ _sl(d); if(!fern) syncSend({t:'szene',d,c:SCN[d]}); }; }
 </script>
 </body>
 </html>

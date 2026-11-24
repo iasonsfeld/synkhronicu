@@ -1,0 +1,11 @@
+name = "sv-relais"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+
+[[durable_objects.bindings]]
+name = "RAUM"
+class_name = "Raum"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Raum"]
